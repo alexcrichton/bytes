@@ -1,5 +1,6 @@
 use {Bytes};
 use byteorder::ByteOrder;
+use iovec::IoVec;
 use std::{cmp, io, ptr, usize};
 
 /// Read bytes from a buffer.
@@ -70,6 +71,29 @@ pub trait Buf {
     /// assert_eq!(buf.bytes(), b"world");
     /// ```
     fn bytes(&self) -> &[u8];
+
+    /// Fills `dst` with potentially multiple slices starting at `self`'s
+    /// current position.
+    ///
+    /// If the `Buf` is backed by disjoint slices of bytes, `bytes_vec` enables
+    /// fetching more than one slice at once. `dst` is a slice of `IoVec`
+    /// references, enabling the slice to be directly used with [`writev`]
+    /// without any further conversion. The sum of the lengths of all the
+    /// buffers in `dst` will be less than or equal to `Buf::remaining()`.
+    ///
+    /// This is a lower level function. Most operations are done with other
+    /// functions.
+    ///
+    /// [`writev`]: http://man7.org/linux/man-pages/man2/readv.2.html
+    fn bytes_vec<'a>(&'a self, dst: &mut [&'a IoVec]) -> usize {
+        if dst.is_empty() {
+            return 0;
+        }
+
+        dst[0] = self.bytes().into();
+
+        1
+    }
 
     /// Advance the internal cursor of the Buf
     ///
@@ -659,6 +683,30 @@ pub trait BufMut {
     /// assert_eq!(buf, b"hello");
     /// ```
     unsafe fn bytes_mut(&mut self) -> &mut [u8];
+
+    /// Fills `dst` with potentially multiple mutable slices starting at `self`'s
+    /// current position.
+    ///
+    /// If the `BufMut` is backed by disjoint slices of bytes, `bytes_vec_mut`
+    /// enables fetching more than one slice at once. `dst` is a slice of
+    /// mutable `IoVec` references, enabling the slice to be directly used with
+    /// [`readv`] without any further conversion. The sum of the lengths of all
+    /// the buffers in `dst` will be less than or equal to
+    /// `Buf::remaining_mut()`.
+    ///
+    /// This is a lower level function. Most operations are done with other
+    /// functions.
+    ///
+    /// [`readv`]: http://man7.org/linux/man-pages/man2/readv.2.html
+    unsafe fn bytes_vec_mut<'a>(&'a mut self, dst: &mut [&'a mut IoVec]) -> usize {
+        if dst.is_empty() {
+            return 0;
+        }
+
+        dst[0] = self.bytes_mut().into();
+
+        1
+    }
 
     /// Transfer bytes into `self` from `src` and advance the cursor by the
     /// number of bytes written.

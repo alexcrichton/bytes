@@ -71,6 +71,7 @@
 #![deny(warnings, missing_docs)]
 
 extern crate byteorder;
+extern crate iovec;
 
 mod buf;
 mod bytes;
